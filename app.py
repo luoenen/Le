@@ -55,7 +55,9 @@ def col_work(column,start):
     cols = sheet_work.col_values(column-1, start-1)
     for val,i in zip(cols,range(len(cols))):
         en = val
-        ch = translation.translator(en)
+        if en == '' or ' ' in en:
+            en = None
+        ch = translation.connect(en)
         sheet_change.write(start+i-1, column-1, ch)
         print(ch)
     change_book.save('success.xls')

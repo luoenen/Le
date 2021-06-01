@@ -6,26 +6,57 @@
 @ tool: PyCharm
 @ time: 2021/5/25 20:17
 '''
-import json
+# -*- coding: utf-8 -*-
+import sys
+import uuid
 import requests
+import hashlib
+from imp import reload
+import time
+import json
 
-def translator(str):
-    url = 'http://fanyi.youdao.com/translate?smartresult=dict&smartresult=rule&smartresult=ugc&sessionFrom=null'
-    key = {
-        'type': "AUTO",
-        'i': str,
-        "doctype": "json",
-        "version": "2.1",
-        "keyfrom": "fanyi.web",
-        "ue": "UTF-8",
-        "action": "FY_BY_CLICKBUTTON",
-        "typoResult": "true"
-    }
-    response = requests.post(url, data=key)
-    if response.status_code == 200:
-        result = json.loads(response.text)
-        translation = result['translateResult'][0][0]['tgt']
-        return translation
-    else:
-        print("有道词典调用失败")
+reload(sys)
+
+YOUDAO_URL = 'https://openapi.youdao.com/api'
+APP_KEY = '65fbd9a9c760eaf4'
+APP_SECRET = '0YZmwphie3hdHiA4XXYateyw42oVO8MQ'
+
+
+def encrypt(signStr):
+    hash_algorithm = hashlib.sha256()
+    hash_algorithm.update(signStr.encode('utf-8'))
+    return hash_algorithm.hexdigest()
+
+
+def truncate(q):
+    if q is None:
         return None
+    size = len(q)
+    return q if size <= 20 else q[0:10] + str(size) + q[size - 10:size]
+
+
+def do_request(data):
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    return requests.post(YOUDAO_URL, data=data, headers=headers)
+
+
+def connect(txt):
+    q = txt
+
+    data = {}
+    data['from'] = 'en'
+    data['to'] = 'zh-CHS'
+    data['signType'] = 'v3'
+    curtime = str(int(time.time()))
+    data['curtime'] = curtime
+    salt = str(uuid.uuid1())
+    signStr = APP_KEY + truncate(q) + salt + curtime + APP_SECRET
+    sign = encrypt(signStr)
+    data['appKey'] = APP_KEY
+    data['q'] = q
+    data['salt'] = salt
+    data['sign'] = sign
+
+    response = do_request(data)
+    dict = json.loads(response.content)
+    return dict['translation'][0]
